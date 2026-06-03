@@ -14,6 +14,18 @@ npm install
 npm run dev
 ```
 
+## Docker
+
+```bash
+# Production-like preview (nginx on http://localhost:5173)
+docker compose up -d --build
+
+# Dev with hot reload
+docker compose -f docker-compose.dev.yml up --build
+```
+
+BrightSign ZIP: `npm run release:zip -- 1.0.0`
+
 ## Build for player
 
 ```bash
