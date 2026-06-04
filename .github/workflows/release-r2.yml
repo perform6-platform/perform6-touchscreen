@@ -46,7 +46,7 @@ jobs:
             "s3://${{ vars.R2_BUCKET_RELEASES }}/touchscreen/perform6-touchscreen-${VERSION}.zip" \
             --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-zip
           path: perform6-touchscreen-*.zip
