@@ -3,7 +3,6 @@ import { HomeHeroVideo } from '../components/home';
 import { SessionPlayer } from '../components/session';
 import {
   CardThumbnail,
-  CategoryPickerModal,
   FullProgramContent,
   GlowCard,
   Logo,
@@ -18,13 +17,8 @@ import {
   getFullProgramSessionConfig,
 } from '../lib/fullProgram';
 import { useHomeIdle } from '../hooks/useHomeIdle';
-import {
-  getPhase1Category,
-  getPhase1SessionConfig,
-  PHASE1_CATEGORIES,
-  PHASE1_VIDEOS,
-  type Phase1CategoryId,
-} from '../lib/phase1';
+import { getPhase1DefaultSessionConfig, PHASE1_ITEMS } from '../lib/phase1';
+import { getPhase2DefaultSessionConfig, PHASE2_ITEMS } from '../lib/phase2';
 
 const IMAGES = {
   phase1: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80&auto=format&fit=crop',
@@ -42,7 +36,7 @@ const HOME_IDLE_VIDEO = '/videos/warmup.mp4';
 const HOME_IDLE_DELAY_MS = 12000;
 
 type ActiveSession = {
-  source: 'start-here' | 'phase1' | 'full-program';
+  source: 'start-here' | 'phase1' | 'phase2' | 'full-program';
   title: string;
   step: { current: number; total: number };
   currentStepLabel: string;
@@ -56,11 +50,12 @@ type ActiveSession = {
 export default function Home() {
   const [startHereOpen, setStartHereOpen] = useState(false);
   const [phase1Open, setPhase1Open] = useState(false);
+  const [phase2Open, setPhase2Open] = useState(false);
   const [fullProgramOpen, setFullProgramOpen] = useState(false);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
 
   const sessionOpen = activeSession !== null;
-  const modalOpen = startHereOpen || phase1Open || fullProgramOpen;
+  const modalOpen = startHereOpen || phase1Open || phase2Open || fullProgramOpen;
 
   const idle = useHomeIdle({
     delayMs: HOME_IDLE_DELAY_MS,
@@ -86,6 +81,7 @@ export default function Home() {
   const handleStartHereOpen = () => {
     idle.close();
     setPhase1Open(false);
+    setPhase2Open(false);
     setFullProgramOpen(false);
     setStartHereOpen(true);
   };
@@ -93,14 +89,42 @@ export default function Home() {
   const handlePhase1Open = () => {
     idle.close();
     setStartHereOpen(false);
+    setPhase2Open(false);
     setFullProgramOpen(false);
     setPhase1Open(true);
+  };
+
+  const handlePhase2Open = () => {
+    idle.close();
+    setStartHereOpen(false);
+    setPhase1Open(false);
+    setFullProgramOpen(false);
+    setPhase2Open(true);
+  };
+
+  const handleBeginPhase1 = () => {
+    setPhase1Open(false);
+    idle.close();
+    setActiveSession({
+      source: 'phase1',
+      ...getPhase1DefaultSessionConfig(),
+    });
+  };
+
+  const handleBeginPhase2 = () => {
+    setPhase2Open(false);
+    idle.close();
+    setActiveSession({
+      source: 'phase2',
+      ...getPhase2DefaultSessionConfig(),
+    });
   };
 
   const handleFullProgramOpen = () => {
     idle.close();
     setStartHereOpen(false);
     setPhase1Open(false);
+    setPhase2Open(false);
     setFullProgramOpen(true);
   };
 
@@ -110,25 +134,6 @@ export default function Home() {
     setActiveSession({
       source: 'full-program',
       ...getFullProgramSessionConfig(),
-    });
-  };
-
-  const handlePhase1VideoSelect = (categoryId: string, videoId: string) => {
-    const category = getPhase1Category(categoryId as Phase1CategoryId);
-    const video = PHASE1_VIDEOS[categoryId as Phase1CategoryId]?.find(
-      (item) => item.id === videoId,
-    );
-
-    if (!category || !video) return;
-
-    setPhase1Open(false);
-    idle.close();
-    setActiveSession({
-      source: 'phase1',
-      ...getPhase1SessionConfig(
-        { sport: category.sport, wall: category.wall },
-        video,
-      ),
     });
   };
 
@@ -174,7 +179,7 @@ export default function Home() {
           />
         </GlowCard>
 
-        <GlowCard variant="purple" className="p6-home__phase2">
+        <GlowCard variant="purple" className="p6-home__phase2" onClick={handlePhase2Open}>
           <PhaseCardContent
             title="Phase 2"
             keywords="Strength • Energy • Recovery"
@@ -233,16 +238,26 @@ export default function Home() {
         accent="blue"
       />
 
-      <CategoryPickerModal
+      <SessionModal
         open={phase1Open}
         onClose={() => setPhase1Open(false)}
-        onVideoSelect={handlePhase1VideoSelect}
+        onBack={() => setPhase1Open(false)}
+        onPrimary={handleBeginPhase1}
         title="Phase 1"
-        subtitle="Select a category, then choose a video to start"
+        items={PHASE1_ITEMS}
         duration="Approx. 15-20 Minutes"
-        categories={PHASE1_CATEGORIES}
-        videosByCategory={PHASE1_VIDEOS}
         accent="cyan"
+      />
+
+      <SessionModal
+        open={phase2Open}
+        onClose={() => setPhase2Open(false)}
+        onBack={() => setPhase2Open(false)}
+        onPrimary={handleBeginPhase2}
+        title="Phase 2"
+        items={PHASE2_ITEMS}
+        duration="Approx. 20-30 Minutes"
+        accent="purple"
       />
 
       <SessionPlayer

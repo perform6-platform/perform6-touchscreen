@@ -14,8 +14,6 @@ type VideoControlBarProps = {
   onSeek: (time: number) => void;
   onVolumeChange: (volume: number) => void;
   onToggleMute: () => void;
-  onRewind: () => void;
-  onForward: () => void;
   onFullscreen?: () => void;
   onReturnToMenu?: () => void;
   onInteract?: () => void;
@@ -40,26 +38,6 @@ function VolumeIcon({ muted = false }: { muted?: boolean }) {
           strokeLinecap="round"
         />
       )}
-    </svg>
-  );
-}
-
-function RewindIcon() {
-  return (
-    <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden>
-      <rect x="1" y="1.5" width="2" height="11" rx="0.5" fill="currentColor" />
-      <path d="M11.5 1.5L6 7L11.5 12.5Z" fill="currentColor" />
-      <path d="M16.5 1.5L11 7L16.5 12.5Z" fill="currentColor" />
-    </svg>
-  );
-}
-
-function ForwardIcon() {
-  return (
-    <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden>
-      <path d="M1.5 1.5L7 7L1.5 12.5Z" fill="currentColor" />
-      <path d="M6.5 1.5L12 7L6.5 12.5Z" fill="currentColor" />
-      <rect x="15" y="1.5" width="2" height="11" rx="0.5" fill="currentColor" />
     </svg>
   );
 }
@@ -120,8 +98,6 @@ export function VideoControlBar({
   onSeek,
   onVolumeChange,
   onToggleMute,
-  onRewind,
-  onForward,
   onFullscreen,
   onReturnToMenu,
   onInteract,
@@ -213,27 +189,11 @@ export function VideoControlBar({
           <span className="p6-vc-bar__time">{formatVideoClock(currentTime)}</span>
           <button
             type="button"
-            className="p6-vc-bar__btn"
-            onClick={onRewind}
-            aria-label="Rewind 10 seconds"
-          >
-            <RewindIcon />
-          </button>
-          <button
-            type="button"
             className="p6-vc-bar__play"
             onClick={onTogglePlay}
             aria-label={paused ? 'Play' : 'Pause'}
           >
             {paused ? <PlayIcon /> : <PauseIcon />}
-          </button>
-          <button
-            type="button"
-            className="p6-vc-bar__btn"
-            onClick={onForward}
-            aria-label="Forward 10 seconds"
-          >
-            <ForwardIcon />
           </button>
           <span className="p6-vc-bar__time">{formatVideoClock(duration)}</span>
         </div>

@@ -157,3 +157,22 @@ export function getPhase1SessionConfig(
     videoSrc: video.videoSrc,
   };
 }
+
+export function getPhase1DefaultSessionConfig() {
+  return {
+    title: 'Phase 1',
+    step: { current: 1, total: 6 },
+    currentStepLabel: 'Mobility Warmup',
+    nextStepLabel: 'Stability & Balance',
+    initialTimeRemaining: 900,
+    initialProgress: 0,
+    accent: 'cyan' as const,
+    videoSrc: PHASE1_GYM_VIDEO,
+  };
+}
+
+export const PHASE1_ITEMS = [
+  'Mobility training',
+  'Stability & balance',
+  'Power foundation',
+];

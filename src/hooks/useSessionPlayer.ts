@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SessionPlayerConfig } from '../components/session/types';
 import { useAutoHideControls } from './useAutoHideControls';
 
-const SEEK_STEP_SECONDS = 10;
-
 export function useSessionPlayer({
   open,
   onClose,
@@ -132,14 +130,6 @@ export function useSessionPlayer({
     onClose();
   }, [clearHideTimer, onClose]);
 
-  const handleRewind = useCallback(() => {
-    handleSeek(Math.max(0, videoCurrentTime - SEEK_STEP_SECONDS));
-  }, [handleSeek, videoCurrentTime]);
-
-  const handleForward = useCallback(() => {
-    handleSeek(Math.min(videoDuration, videoCurrentTime + SEEK_STEP_SECONDS));
-  }, [handleSeek, videoCurrentTime, videoDuration]);
-
   const handleVolumeChange = useCallback(
     (nextVolume: number) => {
       const video = videoRef.current;
@@ -206,8 +196,6 @@ export function useSessionPlayer({
     onSeek: handleSeek,
     onVolumeChange: handleVolumeChange,
     onToggleMute: handleToggleMute,
-    onRewind: handleRewind,
-    onForward: handleForward,
     onFullscreen: handleFullscreen,
     onClose: handleClose,
   };

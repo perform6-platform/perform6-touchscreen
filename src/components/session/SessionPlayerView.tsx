@@ -31,8 +31,6 @@ export type SessionPlayerViewProps = {
   onSeek: (time: number) => void;
   onVolumeChange: (volume: number) => void;
   onToggleMute: () => void;
-  onRewind: () => void;
-  onForward: () => void;
   onFullscreen: () => void;
 };
 
@@ -127,8 +125,6 @@ export function SessionPlayerView({
   onSeek,
   onVolumeChange,
   onToggleMute,
-  onRewind,
-  onForward,
   onFullscreen,
 }: SessionPlayerViewProps) {
   return (
@@ -220,8 +216,6 @@ export function SessionPlayerView({
           onSeek={onSeek}
           onVolumeChange={onVolumeChange}
           onToggleMute={onToggleMute}
-          onRewind={onRewind}
-          onForward={onForward}
           onFullscreen={onFullscreen}
           onReturnToMenu={onClose}
           onInteract={onRevealControls}
