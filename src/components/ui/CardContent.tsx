@@ -84,7 +84,9 @@ export function StartHereContent({
         <p className="p6-body mb-2 text-white/90">{bullets}</p>
         <p className="p6-small p6-muted">{description}</p>
       </div>
-      <span className="p6-caption absolute right-4 bottom-4 text-white/75 sm:right-6 sm:bottom-6">{duration}</span>
+      <div className="absolute right-4 bottom-4 sm:right-6 sm:bottom-6">
+        <CardDuration duration={duration} variant="blue" />
+      </div>
     </div>
   );
 }

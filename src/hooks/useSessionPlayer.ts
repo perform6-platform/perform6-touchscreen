@@ -7,8 +7,6 @@ export function useSessionPlayer({
   onClose,
   videoSrc,
   attractMode = false,
-  initialTimeRemaining = 275,
-  initialProgress = 16,
 }: SessionPlayerConfig) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -22,8 +20,6 @@ export function useSessionPlayer({
   } = useAutoHideControls();
 
   const [paused, setPaused] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(initialTimeRemaining);
-  const [progress, setProgress] = useState(initialProgress);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
   const [bufferedRatio, setBufferedRatio] = useState(0);
@@ -78,8 +74,6 @@ export function useSessionPlayer({
     setMuted(true);
     setVolume(1);
     volumeBeforeMuteRef.current = 1;
-    setTimeRemaining(initialTimeRemaining);
-    setProgress(initialProgress);
     resetControls();
 
     const video = videoRef.current;
@@ -91,7 +85,7 @@ export function useSessionPlayer({
     }
 
     return clearHideTimer;
-  }, [open, initialTimeRemaining, initialProgress, videoSrc, resetControls, clearHideTimer, attemptPlay]);
+  }, [open, videoSrc, resetControls, clearHideTimer, attemptPlay]);
 
   useEffect(() => {
     if (!open) return;
@@ -108,17 +102,6 @@ export function useSessionPlayer({
 
     return () => video.removeEventListener('canplay', onCanPlay);
   }, [open, paused, videoSrc, attemptPlay]);
-
-  useEffect(() => {
-    if (!open || paused || attractMode) return;
-
-    const interval = window.setInterval(() => {
-      setTimeRemaining((t) => (t > 0 ? t - 1 : 0));
-      setProgress((p) => (p < 100 ? p + 0.05 : 100));
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [open, paused, attractMode]);
 
   useEffect(() => {
     syncPlayback(paused);
@@ -176,6 +159,18 @@ export function useSessionPlayer({
   const handleTogglePlay = useCallback(() => {
     unmuteOnGesture();
     setPaused((p) => !p);
+    onRevealControls();
+  }, [onRevealControls, unmuteOnGesture]);
+
+  const handleRestart = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    unmuteOnGesture();
+    video.currentTime = 0;
+    setVideoCurrentTime(0);
+    setPaused(false);
+    void video.play().catch(() => {});
     onRevealControls();
   }, [onRevealControls, unmuteOnGesture]);
 
@@ -248,8 +243,6 @@ export function useSessionPlayer({
     playerRef,
     paused,
     controlsVisible,
-    timeRemaining,
-    progress,
     videoCurrentTime,
     videoDuration,
     bufferedRatio,
@@ -257,6 +250,7 @@ export function useSessionPlayer({
     muted,
     onRevealControls: handleRevealControls,
     onTogglePlay: handleTogglePlay,
+    onRestart: handleRestart,
     onSeek: handleSeek,
     onVolumeChange: handleVolumeChange,
     onToggleMute: handleToggleMute,

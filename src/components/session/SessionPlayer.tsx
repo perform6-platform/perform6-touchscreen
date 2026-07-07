@@ -13,11 +13,9 @@ export function SessionPlayer(props: SessionPlayerConfig) {
       videoSrc={props.videoSrc}
       attractMode={props.attractMode}
       title={props.title}
-      step={props.step}
-      currentStepLabel={props.currentStepLabel}
-      nextStepLabel={props.nextStepLabel}
       accent={props.accent}
       className={props.className}
+      controlVariant={props.controlVariant}
       {...controller}
     />,
     document.body,

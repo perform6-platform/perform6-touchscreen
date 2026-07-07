@@ -18,4 +18,5 @@ export type SessionPlayerConfig = {
   initialProgress?: number;
   accent?: P6Accent;
   className?: string;
+  controlVariant?: 'full' | 'minimal' | 'program';
 };

@@ -33,7 +33,7 @@ const START_HERE_ITEMS = [
 ];
 
 const HOME_IDLE_VIDEO = '/videos/warmup.mp4';
-const HOME_IDLE_DELAY_MS = 12000;
+const HOME_IDLE_DELAY_MS = 30000;
 
 type ActiveSession = {
   source: 'start-here' | 'phase1' | 'phase2' | 'full-program';
@@ -142,7 +142,7 @@ export default function Home() {
       className="p6-home relative h-full w-full overflow-hidden"
       onPointerDown={idle.onActivity}
     >
-      <HomeHeroVideo src={HOME_IDLE_VIDEO} paused={sessionOpen || idle.isOpen} />
+      <HomeHeroVideo src={HOME_IDLE_VIDEO} paused />
 
       <div className="p6-home__grid">
         <Logo className="p6-home__logo" />
@@ -266,12 +266,16 @@ export default function Home() {
         videoSrc={activeSession?.videoSrc ?? HOME_IDLE_VIDEO}
         attractMode={idle.isOpen && !sessionOpen}
         title={activeSession?.title}
-        step={activeSession?.step}
-        currentStepLabel={activeSession?.currentStepLabel}
-        nextStepLabel={activeSession?.nextStepLabel}
-        initialTimeRemaining={activeSession?.initialTimeRemaining}
-        initialProgress={activeSession?.initialProgress}
         accent={activeSession?.accent ?? 'cyan'}
+        controlVariant={
+          activeSession?.source === 'full-program'
+            ? 'program'
+            : activeSession?.source === 'start-here' ||
+                activeSession?.source === 'phase1' ||
+                activeSession?.source === 'phase2'
+              ? 'minimal'
+              : 'full'
+        }
       />
     </main>
   );

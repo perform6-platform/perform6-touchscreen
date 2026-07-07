@@ -10,12 +10,14 @@ type VideoControlBarProps = {
   volume: number;
   muted?: boolean;
   visible?: boolean;
+  variant?: 'full' | 'minimal' | 'program';
   onTogglePlay: () => void;
   onSeek: (time: number) => void;
   onVolumeChange: (volume: number) => void;
   onToggleMute: () => void;
   onFullscreen?: () => void;
   onReturnToMenu?: () => void;
+  onRestart?: () => void;
   onInteract?: () => void;
   className?: string;
 };
@@ -94,12 +96,14 @@ export function VideoControlBar({
   volume,
   muted = false,
   visible = true,
+  variant = 'full',
   onTogglePlay,
   onSeek,
   onVolumeChange,
   onToggleMute,
   onFullscreen,
   onReturnToMenu,
+  onRestart,
   onInteract,
   className,
 }: VideoControlBarProps) {
@@ -115,6 +119,105 @@ export function VideoControlBar({
     const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
     onSeek(ratio * duration);
   };
+
+  if (variant === 'minimal') {
+    return (
+      <div
+        className={cn(
+          'p6-vc-bar',
+          'p6-vc-bar--minimal',
+          !visible && 'p6-vc-bar--hidden',
+          className,
+        )}
+        onPointerDown={onInteract}
+      >
+        {onReturnToMenu && (
+          <button
+            type="button"
+            className="p6-vc-bar__btn p6-vc-bar__return"
+            onClick={onReturnToMenu}
+            aria-label="Return to menu"
+          >
+            Return to Menu
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (variant === 'program') {
+    return (
+      <div
+        className={cn(
+          'p6-vc-bar',
+          'p6-vc-bar--program',
+          !visible && 'p6-vc-bar--hidden',
+          className,
+        )}
+        onPointerDown={onInteract}
+      >
+        <div className="p6-vc-bar__row">
+          <div className="p6-vc-bar__left">
+            {onReturnToMenu && (
+              <button
+                type="button"
+                className="p6-vc-bar__btn p6-vc-bar__return"
+                onClick={onReturnToMenu}
+                aria-label="Return to menu"
+              >
+                Return to Menu
+              </button>
+            )}
+            {onRestart && (
+              <button
+                type="button"
+                className="p6-vc-bar__btn p6-vc-bar__return"
+                onClick={onRestart}
+                aria-label="Restart video"
+              >
+                Restart
+              </button>
+            )}
+          </div>
+
+          <div className="p6-vc-bar__center">
+            <button
+              type="button"
+              className="p6-vc-bar__play"
+              onClick={onTogglePlay}
+              aria-label={paused ? 'Play' : 'Pause'}
+            >
+              {paused ? <PlayIcon /> : <PauseIcon />}
+            </button>
+          </div>
+
+          <div className="p6-vc-bar__right">
+            <button
+              type="button"
+              className="p6-vc-bar__btn"
+              onClick={onToggleMute}
+              aria-label={muted ? 'Unmute' : 'Mute'}
+            >
+              <VolumeIcon muted={muted} />
+            </button>
+            <div className="p6-vc-bar__volume-wrap">
+              <input
+                type="range"
+                className="p6-vc-bar__volume"
+                min={0}
+                max={1}
+                step={0.05}
+                value={muted ? 0 : volume}
+                style={{ ['--p6-volume' as string]: `${(muted ? 0 : volume) * 100}%` }}
+                onChange={(e) => onVolumeChange(Number(e.target.value))}
+                aria-label="Volume"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
