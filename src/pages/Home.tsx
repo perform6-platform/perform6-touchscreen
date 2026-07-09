@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { HomeHeroVideo } from '../components/home';
-import { SessionPlayer } from '../components/session';
+import { useDisplayPlayback } from '../hooks/useRuntime';
+import { resolveTouchVideos } from '../services/playback';
+import { useRuntimeStore } from '../stores/runtimeStore';
 import {
   CardThumbnail,
   FullProgramContent,
@@ -11,14 +13,13 @@ import {
   SessionModal,
   StartHereContent,
   TouchHint,
+  VideoPlayingModal,
 } from '../components/ui';
-import {
-  FULL_PROGRAM_ITEMS,
-  getFullProgramSessionConfig,
-} from '../lib/fullProgram';
+import { FULL_PROGRAM_ITEMS } from '../lib/fullProgram';
 import { useHomeIdle } from '../hooks/useHomeIdle';
-import { getPhase1DefaultSessionConfig, PHASE1_ITEMS } from '../lib/phase1';
-import { getPhase2DefaultSessionConfig, PHASE2_ITEMS } from '../lib/phase2';
+import { PHASE1_ITEMS } from '../lib/phase1';
+import { PHASE2_ITEMS } from '../lib/phase2';
+import type { P6Accent } from '../components/ui';
 
 const IMAGES = {
   phase1: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&q=80&auto=format&fit=crop',
@@ -32,22 +33,29 @@ const START_HERE_ITEMS = [
   'Prepare your body for training',
 ];
 
-const HOME_IDLE_VIDEO = '/videos/warmup.mp4';
 const HOME_IDLE_DELAY_MS = 30000;
 
 type ActiveSession = {
   source: 'start-here' | 'phase1' | 'phase2' | 'full-program';
-  title: string;
-  step: { current: number; total: number };
-  currentStepLabel: string;
-  nextStepLabel: string;
-  initialTimeRemaining: number;
-  initialProgress: number;
-  accent: 'blue' | 'cyan' | 'purple' | 'gold';
+  accent: P6Accent;
   videoSrc: string;
 };
 
+const SESSION_ACCENT: Record<ActiveSession['source'], P6Accent> = {
+  'start-here': 'cyan',
+  phase1: 'cyan',
+  phase2: 'purple',
+  'full-program': 'gold',
+};
+
 export default function Home() {
+  const { playbackState, setDisplayVideoSrc } = useDisplayPlayback();
+  const resetDisplayControls = useRuntimeStore((s) => s.resetDisplayControls);
+  const setDisplayVideoLoop = useRuntimeStore((s) => s.setDisplayVideoLoop);
+  const touchVideos = useMemo(
+    () => resolveTouchVideos(playbackState.manifest),
+    [playbackState.manifest],
+  );
   const [startHereOpen, setStartHereOpen] = useState(false);
   const [phase1Open, setPhase1Open] = useState(false);
   const [phase2Open, setPhase2Open] = useState(false);
@@ -62,20 +70,35 @@ export default function Home() {
     blocked: modalOpen || sessionOpen,
   });
 
-  const handleBeginStartHere = () => {
-    setStartHereOpen(false);
+  const idleModalOpen = idle.isOpen && !sessionOpen;
+  const playingModalOpen = sessionOpen || idleModalOpen;
+
+  useEffect(() => {
+    if (!sessionOpen) {
+      setDisplayVideoSrc(touchVideos.idle);
+    }
+  }, [setDisplayVideoSrc, touchVideos.idle, sessionOpen]);
+
+  useEffect(() => {
+    return () => setDisplayVideoSrc(null);
+  }, [setDisplayVideoSrc]);
+
+  const beginSession = (source: ActiveSession['source'], videoSrc: string) => {
     idle.close();
+    resetDisplayControls();
+    setDisplayVideoLoop(source !== 'full-program');
+    setDisplayVideoSrc(videoSrc);
     setActiveSession({
-      source: 'start-here',
-      title: 'Start Here',
-      step: { current: 1, total: 6 },
-      currentStepLabel: 'Safety Check Movement Prep',
-      nextStepLabel: 'Dynamic Warmup',
-      initialTimeRemaining: 275,
-      initialProgress: 16,
-      accent: 'cyan',
-      videoSrc: HOME_IDLE_VIDEO,
+      source,
+      accent: SESSION_ACCENT[source],
+      videoSrc,
     });
+  };
+
+  const handleCloseSession = () => {
+    setActiveSession(null);
+    resetDisplayControls();
+    setDisplayVideoSrc(touchVideos.idle);
   };
 
   const handleStartHereOpen = () => {
@@ -102,24 +125,6 @@ export default function Home() {
     setPhase2Open(true);
   };
 
-  const handleBeginPhase1 = () => {
-    setPhase1Open(false);
-    idle.close();
-    setActiveSession({
-      source: 'phase1',
-      ...getPhase1DefaultSessionConfig(),
-    });
-  };
-
-  const handleBeginPhase2 = () => {
-    setPhase2Open(false);
-    idle.close();
-    setActiveSession({
-      source: 'phase2',
-      ...getPhase2DefaultSessionConfig(),
-    });
-  };
-
   const handleFullProgramOpen = () => {
     idle.close();
     setStartHereOpen(false);
@@ -128,21 +133,12 @@ export default function Home() {
     setFullProgramOpen(true);
   };
 
-  const handleBeginFullProgram = () => {
-    setFullProgramOpen(false);
-    idle.close();
-    setActiveSession({
-      source: 'full-program',
-      ...getFullProgramSessionConfig(),
-    });
-  };
-
   return (
     <main
       className="p6-home relative h-full w-full overflow-hidden"
       onPointerDown={idle.onActivity}
     >
-      <HomeHeroVideo src={HOME_IDLE_VIDEO} paused />
+      <HomeHeroVideo src={touchVideos.idle} />
 
       <div className="p6-home__grid">
         <Logo className="p6-home__logo" />
@@ -220,7 +216,10 @@ export default function Home() {
         open={startHereOpen}
         onClose={() => setStartHereOpen(false)}
         onBack={() => setStartHereOpen(false)}
-        onPrimary={handleBeginStartHere}
+        onPrimary={() => {
+          setStartHereOpen(false);
+          beginSession('start-here', touchVideos.startHere);
+        }}
         title="Start Here"
         items={START_HERE_ITEMS}
         duration="Approx. 5-10 Minutes"
@@ -231,7 +230,10 @@ export default function Home() {
         open={fullProgramOpen}
         onClose={() => setFullProgramOpen(false)}
         onBack={() => setFullProgramOpen(false)}
-        onPrimary={handleBeginFullProgram}
+        onPrimary={() => {
+          setFullProgramOpen(false);
+          beginSession('full-program', touchVideos.fullProgram);
+        }}
         title="Full Program"
         items={FULL_PROGRAM_ITEMS}
         duration="Approx. 60 Minutes"
@@ -242,7 +244,10 @@ export default function Home() {
         open={phase1Open}
         onClose={() => setPhase1Open(false)}
         onBack={() => setPhase1Open(false)}
-        onPrimary={handleBeginPhase1}
+        onPrimary={() => {
+          setPhase1Open(false);
+          beginSession('phase1', touchVideos.phase1);
+        }}
         title="Phase 1"
         items={PHASE1_ITEMS}
         duration="Approx. 15-20 Minutes"
@@ -253,29 +258,21 @@ export default function Home() {
         open={phase2Open}
         onClose={() => setPhase2Open(false)}
         onBack={() => setPhase2Open(false)}
-        onPrimary={handleBeginPhase2}
+        onPrimary={() => {
+          setPhase2Open(false);
+          beginSession('phase2', touchVideos.phase2);
+        }}
         title="Phase 2"
         items={PHASE2_ITEMS}
         duration="Approx. 20-30 Minutes"
         accent="purple"
       />
 
-      <SessionPlayer
-        open={sessionOpen || idle.isOpen}
-        onClose={sessionOpen ? () => setActiveSession(null) : idle.close}
-        videoSrc={activeSession?.videoSrc ?? HOME_IDLE_VIDEO}
-        attractMode={idle.isOpen && !sessionOpen}
-        title={activeSession?.title}
+      <VideoPlayingModal
+        open={playingModalOpen}
+        onClose={sessionOpen ? handleCloseSession : idle.close}
         accent={activeSession?.accent ?? 'cyan'}
-        controlVariant={
-          activeSession?.source === 'full-program'
-            ? 'program'
-            : activeSession?.source === 'start-here' ||
-                activeSession?.source === 'phase1' ||
-                activeSession?.source === 'phase2'
-              ? 'minimal'
-              : 'full'
-        }
+        variant={activeSession?.source === 'full-program' ? 'full-program' : 'simple'}
       />
     </main>
   );

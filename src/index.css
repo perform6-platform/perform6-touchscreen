@@ -382,6 +382,11 @@ body,
   -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
+.p6-modal-overlay--contained {
+  position: absolute;
+  z-index: 50;
+}
+
 .p6-session-modal {
   position: relative;
   width: min(24rem, calc(100vw - 3rem));
@@ -649,6 +654,101 @@ body,
   box-shadow:
     0 0 14px var(--p6-modal-accent-glow),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.p6-video-playing-modal {
+  min-height: auto;
+  padding: 3.5rem 2rem 2rem;
+  text-align: center;
+}
+
+.p6-video-playing-modal__message {
+  margin: 2.5rem 0 2rem;
+  font-size: clamp(1.75rem, 1.25rem + 1.5vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.p6-video-playing-modal__btn {
+  min-width: 14rem;
+}
+
+.p6-video-playing-modal:not(.p6-video-playing-modal--program) .p6-video-playing-modal__actions {
+  display: flex;
+  justify-content: center;
+}
+
+.p6-video-playing-modal--program {
+  width: min(28rem, calc(100% - 2rem));
+  padding: 2.5rem 1.75rem 1.75rem;
+}
+
+.p6-video-playing-modal--program .p6-video-playing-modal__message {
+  margin: 0 0 1.5rem;
+}
+
+.p6-video-playing-modal--program .p6-video-playing-modal__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.p6-video-playing-modal--program .p6-session-modal__btn {
+  min-height: 3rem;
+  font-size: 0.75rem;
+}
+
+.p6-video-playing-modal__volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0 0.875rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.p6-video-playing-modal__volume-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+}
+
+.p6-video-playing-modal__volume-btn:active {
+  transform: scale(0.96);
+}
+
+.p6-video-playing-modal__volume-slider-wrap {
+  flex: 1;
+  min-width: 0;
+  height: 2rem;
+}
+
+.p6-video-playing-modal__volume-slider {
+  width: 100%;
+  min-width: 0;
 }
 
 /* ─── Category picker modal ─── */

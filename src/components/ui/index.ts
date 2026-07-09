@@ -10,6 +10,8 @@ export {
   FullProgramContent,
 } from './CardContent';
 export { SessionModal } from './SessionModal';
+export { VideoPlayingModal } from './VideoPlayingModal';
+export { DisplayVolumeControl } from './DisplayVolumeControl';
 export { CategoryPickerModal } from './CategoryPickerModal';
 export type { CategoryPickerItem, CategoryPickerVideo } from './CategoryPickerModal';
 export { VideoControlBar } from './VideoControlBar';
