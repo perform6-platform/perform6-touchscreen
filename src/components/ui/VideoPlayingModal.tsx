@@ -9,6 +9,7 @@ type VideoPlayingModalProps = {
   onClose: () => void;
   accent?: P6Accent;
   variant?: 'simple' | 'full-program';
+  sessionLabel?: string;
 };
 
 function CloseIcon() {
@@ -29,6 +30,7 @@ export function VideoPlayingModal({
   onClose,
   accent = 'cyan',
   variant = 'simple',
+  sessionLabel,
 }: VideoPlayingModalProps) {
   const displayPaused = useRuntimeStore((s) => s.displayPaused);
   const toggleDisplayPaused = useRuntimeStore((s) => s.toggleDisplayPaused);
@@ -48,6 +50,7 @@ export function VideoPlayingModal({
   if (!open) return null;
 
   const isFullProgram = variant === 'full-program';
+  const message = sessionLabel ? `Now video play ${sessionLabel}` : 'Now video play';
 
   return (
     <div
@@ -57,7 +60,7 @@ export function VideoPlayingModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={isFullProgram ? 'Full program controls' : 'Now video play'}
+        aria-label={message}
         className={cn(
           'p6-session-modal p6-video-playing-modal',
           `p6-session-modal--${accent}`,
@@ -76,7 +79,14 @@ export function VideoPlayingModal({
           </button>
         )}
 
-        <p className="p6-video-playing-modal__message">Now video play</p>
+        <div className="p6-video-playing-modal__message">
+          <span className="p6-video-playing-modal__message-line">Now video play</span>
+          {sessionLabel && (
+            <span className="p6-video-playing-modal__message-line p6-video-playing-modal__message-session">
+              {sessionLabel}
+            </span>
+          )}
+        </div>
 
         <div className="p6-session-modal__actions p6-video-playing-modal__actions">
           {isFullProgram ? (

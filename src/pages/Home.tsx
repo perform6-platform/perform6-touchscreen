@@ -41,6 +41,13 @@ type ActiveSession = {
   videoSrc: string;
 };
 
+const SESSION_LABEL: Record<ActiveSession['source'], string> = {
+  'start-here': 'Start Here',
+  phase1: 'Phase 1',
+  phase2: 'Phase 2',
+  'full-program': 'Full Program',
+};
+
 const SESSION_ACCENT: Record<ActiveSession['source'], P6Accent> = {
   'start-here': 'cyan',
   phase1: 'cyan',
@@ -273,6 +280,7 @@ export default function Home() {
         onClose={sessionOpen ? handleCloseSession : idle.close}
         accent={activeSession?.accent ?? 'cyan'}
         variant={activeSession?.source === 'full-program' ? 'full-program' : 'simple'}
+        sessionLabel={activeSession ? SESSION_LABEL[activeSession.source] : 'Default'}
       />
     </main>
   );
