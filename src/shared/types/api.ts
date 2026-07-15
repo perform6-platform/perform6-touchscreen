@@ -62,6 +62,7 @@ export interface PlaybackSlotContent {
   slot?: string;
   label?: string;
   libraryType?: string;
+  categoryId?: string | null;
   isRotating?: boolean;
   items?: PlaybackVideoItem[];
   metadata?: Record<string, unknown>;
@@ -91,11 +92,35 @@ export interface BackendPlaybackManifest {
     phase1?: PlaybackSlotContent;
     phase2?: PlaybackSlotContent;
     fullProgram?: PlaybackSlotContent;
+    [slotKey: string]: PlaybackSlotContent | undefined;
   };
+  screens?: BackendLogicalScreen[];
+  targets?: Record<string, BackendTargetScreenContent>;
+}
+
+export interface BackendLogicalScreen {
+  screenKey?: string;
+  contentSlot?: string;
+  categoryId?: string | null;
+  sortOrder?: number;
+  slotContent?: PlaybackSlotContent;
+}
+
+/** Per-HDMI / per-output entry from TargetPlaybackManifest.targets */
+export interface BackendTargetScreenContent {
+  targetType?: string;
+  targetKey?: string;
+  screenKey?: string;
+  contentSlot?: string;
+  categoryId?: string | null;
+  slotContent?: PlaybackSlotContent;
 }
 
 export interface BackendTargetManifest {
-  targets?: Record<string, BackendPlaybackManifest | PlaybackSlotContent>;
+  resolutionSource?: string;
+  hardwareProfileCode?: string | null;
+  targets?: Record<string, BackendTargetScreenContent | PlaybackSlotContent>;
+  screens?: BackendLogicalScreen[];
 }
 
 export interface SyncDownloadCompleteRequest {

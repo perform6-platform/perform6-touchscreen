@@ -2,11 +2,13 @@ import { runtimeConfig } from '../config/runtime';
 import {
   fromBackendDisplayTarget,
   XC4055_HDMI_TARGETS,
-  XC4055_SCREEN_LABELS,
+  XC4055_SCREEN_FALLBACK_LABELS,
 } from '../shared/displayTarget';
 import type {
+  BackendLogicalScreen,
   BackendPlaybackManifest,
   BackendTargetManifest,
+  BackendTargetScreenContent,
   PlaybackSlotContent,
   PlaybackVideoItem,
   SyncCheckResponseData,
@@ -68,23 +70,122 @@ function slotToScreen(
   slot: PlaybackSlotContent | undefined,
   rotationDay: number,
   extras?: { displayTarget?: DisplayTarget; clusterMember?: ClusterMember },
+  /** Keep empty panes so XC4055 still shows the assigned category name. */
+  allowEmpty = false,
 ): PlaybackScreen | null {
   const video = pickVideoForSlot(slot, rotationDay);
-  if (!video?.fileUrl && !(slot?.items?.length)) return null;
-  const asset = video ? videoItemToMediaAsset(video) : null;
+  const hasContent = Boolean(video?.fileUrl) || Boolean(slot?.items?.length);
+  if (!hasContent && !allowEmpty) return null;
+
+  const asset = video?.fileUrl ? videoItemToMediaAsset(video) : null;
   const playlist = (slot?.items ?? [])
     .filter((i) => i.fileUrl)
     .map(videoItemToMediaAsset);
 
   return {
     id,
-    label: label || slot?.label || id,
+    label: slot?.label || label || id,
     displayTarget: extras?.displayTarget,
     clusterMember: extras?.clusterMember,
     currentVideo: asset ?? undefined,
     playlist: playlist.length > 0 ? playlist : asset ? [asset] : [],
     rotationDay,
   };
+}
+
+function isLogicalResolutionMode(mode: string | undefined): boolean {
+  if (!mode) return false;
+  const normalized = mode.toLowerCase();
+  return (
+    normalized === 'logical' ||
+    normalized === 'logical-screen-map' ||
+    normalized.includes('logical')
+  );
+}
+
+function extractSlotContent(
+  target: BackendTargetScreenContent | PlaybackSlotContent | undefined,
+): PlaybackSlotContent | undefined {
+  if (!target || typeof target !== 'object') return undefined;
+  if ('slotContent' in target && target.slotContent) {
+    return target.slotContent;
+  }
+  if ('items' in target || 'label' in target || 'isRotating' in target) {
+    return target as PlaybackSlotContent;
+  }
+  return undefined;
+}
+
+function parseTargetManifest(
+  targetManifest: BackendTargetManifest,
+  rotationDay: number,
+): PlaybackScreen[] {
+  const targets = targetManifest.targets ?? {};
+  const screens: PlaybackScreen[] = [];
+  const usedTargets = new Set<DisplayTarget>();
+
+  const ensureScreen = (
+    displayTarget: DisplayTarget,
+    slot: PlaybackSlotContent | undefined,
+    fallbackLabel: string,
+  ) => {
+    if (usedTargets.has(displayTarget)) return;
+    usedTargets.add(displayTarget);
+    const screen = slotToScreen(
+      `screen-${displayTarget}`,
+      fallbackLabel,
+      slot,
+      rotationDay,
+      { displayTarget },
+      true,
+    );
+    if (screen) screens.push(screen);
+  };
+
+  for (const hdmi of XC4055_HDMI_TARGETS) {
+    const target = targets[hdmi];
+    const displayTarget = fromBackendDisplayTarget(hdmi);
+    if (!displayTarget) continue;
+    const slot = extractSlotContent(target);
+    const fallback =
+      XC4055_SCREEN_FALLBACK_LABELS[displayTarget] ?? `Screen ${displayTarget}`;
+    ensureScreen(displayTarget, slot, slot?.label ?? fallback);
+  }
+
+  // Also accept SCREEN_1 / SCREEN_2 keys if backend uses logical keys.
+  for (const [key, target] of Object.entries(targets)) {
+    const displayTarget = fromBackendDisplayTarget(key);
+    if (!displayTarget || usedTargets.has(displayTarget)) continue;
+    const slot = extractSlotContent(target);
+    ensureScreen(
+      displayTarget,
+      slot,
+      slot?.label ?? XC4055_SCREEN_FALLBACK_LABELS[displayTarget] ?? key,
+    );
+  }
+
+  // Fallback: screens[] array on target manifest
+  if (screens.length === 0 && Array.isArray(targetManifest.screens)) {
+    for (const logical of targetManifest.screens as BackendLogicalScreen[]) {
+      const displayTarget = logical.screenKey
+        ? fromBackendDisplayTarget(logical.screenKey)
+        : undefined;
+      if (!displayTarget) continue;
+      ensureScreen(
+        displayTarget,
+        logical.slotContent,
+        logical.slotContent?.label ??
+          XC4055_SCREEN_FALLBACK_LABELS[displayTarget] ??
+          logical.screenKey ??
+          displayTarget,
+      );
+    }
+  }
+
+  return screens.sort((a, b) => {
+    const order = { SCREEN_1: 1, SCREEN_2: 2, SCREEN_3: 3 } as const;
+    return (order[a.displayTarget!] ?? 9) - (order[b.displayTarget!] ?? 9);
+  });
 }
 
 function manifestToScreens(
@@ -111,6 +212,18 @@ function manifestToScreens(
     return screens.length > 0 ? screens : [];
   }
 
+  // If logical screens are embedded on the playback manifest, prefer them.
+  if (Array.isArray(manifest.screens) && manifest.screens.length > 0) {
+    return parseTargetManifest(
+      { targets: {}, screens: manifest.screens },
+      rotationDay,
+    );
+  }
+
+  if (manifest.targets && Object.keys(manifest.targets).length > 0) {
+    return parseTargetManifest({ targets: manifest.targets }, rotationDay);
+  }
+
   const defaultSlots: Array<[DisplayTarget, string, PlaybackSlotContent | undefined]> = [
     ['SCREEN_1', 'Start Here', content.startHere ?? content.default],
     ['SCREEN_2', 'Phase 1', content.phase1],
@@ -118,46 +231,10 @@ function manifestToScreens(
   ];
 
   for (const [target, label, slot] of defaultSlots) {
-    const screen = slotToScreen(`screen-${target}`, label, slot, rotationDay, {
+    const screen = slotToScreen(`screen-${target}`, slot?.label ?? label, slot, rotationDay, {
       displayTarget: target,
-    });
+    }, true);
     if (screen) screens.push(screen);
-  }
-
-  return screens;
-}
-
-function parseTargetManifest(
-  targetManifest: BackendTargetManifest,
-  rotationDay: number,
-): PlaybackScreen[] {
-  const targets = targetManifest.targets ?? {};
-  const screens: PlaybackScreen[] = [];
-
-  for (const hdmi of XC4055_HDMI_TARGETS) {
-    const target = targets[hdmi];
-    if (!target) continue;
-
-    const displayTarget = fromBackendDisplayTarget(hdmi);
-    const label = XC4055_SCREEN_LABELS[hdmi] ?? hdmi;
-
-    if ('content' in target && target.content) {
-      const manifest = target as BackendPlaybackManifest;
-      const slot =
-        manifest.content?.startHere ??
-        manifest.content?.phase1 ??
-        manifest.content?.phase2 ??
-        manifest.content?.default;
-      const screen = slotToScreen(`screen-${hdmi}`, label, slot, rotationDay, {
-        displayTarget,
-      });
-      if (screen) screens.push(screen);
-    } else {
-      const screen = slotToScreen(`screen-${hdmi}`, label, target as PlaybackSlotContent, rotationDay, {
-        displayTarget,
-      });
-      if (screen) screens.push(screen);
-    }
   }
 
   return screens;
@@ -173,14 +250,31 @@ export function buildRuntimeManifest(
 
   let screens: PlaybackScreen[] = [];
 
+  const hasTargetPayload = Boolean(
+    syncData.targetManifest?.targets &&
+      Object.keys(syncData.targetManifest.targets).length > 0,
+  );
+  const hasLogicalScreens = Boolean(
+    syncData.targetManifest?.screens &&
+      syncData.targetManifest.screens.length > 0,
+  );
+
   if (
-    profile === 'XC4055' &&
-    syncData.config?.resolutionMode === 'logical' &&
-    syncData.targetManifest?.targets
+    (profile === 'XC4055' || profile === 'HD226') &&
+    (isLogicalResolutionMode(syncData.config?.resolutionMode) ||
+      hasTargetPayload ||
+      hasLogicalScreens) &&
+    syncData.targetManifest
   ) {
     screens = parseTargetManifest(syncData.targetManifest, rotationDay);
   } else if (syncData.playbackManifest) {
-    screens = manifestToScreens(syncData.playbackManifest, profile);
+    // Same payload sometimes only on playbackManifest when targetManifest aliases it.
+    const pm = syncData.playbackManifest;
+    if (pm.targets && Object.keys(pm.targets).length > 0) {
+      screens = parseTargetManifest({ targets: pm.targets, screens: pm.screens }, rotationDay);
+    } else {
+      screens = manifestToScreens(pm, profile);
+    }
   }
 
   if (screens.length === 0) return null;

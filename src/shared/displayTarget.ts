@@ -36,8 +36,19 @@ export function defaultDisplayTargetForProfile(profile: HardwareProfile): Displa
 
 export const XC4055_HDMI_TARGETS = ['HDMI1', 'HDMI2', 'HDMI3'] as const;
 
+/** Fallback only when sync has not yet provided category labels. */
+export const XC4055_SCREEN_FALLBACK_LABELS: Record<DisplayTarget, string> = {
+  SCREEN_1: 'Screen 1',
+  SCREEN_2: 'Screen 2',
+  SCREEN_3: 'Screen 3',
+};
+
+/** @deprecated Prefer category labels from runtime manifest. */
 export const XC4055_SCREEN_LABELS: Record<string, string> = {
-  HDMI1: 'Screen 1 — Start Here',
-  HDMI2: 'Screen 2 — Phase 1',
-  HDMI3: 'Screen 3 — Phase 2',
+  HDMI1: 'Screen 1',
+  HDMI2: 'Screen 2',
+  HDMI3: 'Screen 3',
+  SCREEN_1: 'Screen 1',
+  SCREEN_2: 'Screen 2',
+  SCREEN_3: 'Screen 3',
 };

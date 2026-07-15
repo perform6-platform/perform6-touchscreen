@@ -2,13 +2,11 @@ import { Link } from 'react-router-dom';
 import { DisplayScreen } from '../display-ui';
 import { findScreenForTarget, getCurrentVideo } from '../services/playback';
 import { resolveMediaFileUrl } from '../services/manifest';
+import { XC4055_SCREEN_FALLBACK_LABELS } from '../shared/displayTarget';
+import type { DisplayTarget } from '../shared/types';
 import { useRuntime, useSync } from '../hooks/useRuntime';
 
-const SCREENS = [
-  { target: 'SCREEN_1' as const, label: 'Screen 1 — Start Here' },
-  { target: 'SCREEN_2' as const, label: 'Screen 2 — Phase 1' },
-  { target: 'SCREEN_3' as const, label: 'Screen 3 — Phase 2' },
-];
+const SCREEN_TARGETS: DisplayTarget[] = ['SCREEN_1', 'SCREEN_2', 'SCREEN_3'];
 
 export default function XC4055Simulator() {
   const { store, deviceInfo } = useRuntime();
@@ -23,6 +21,7 @@ export default function XC4055Simulator() {
           <h1 className="text-lg font-bold">Three HDMI Outputs</h1>
           <p className="text-xs text-slate-500">
             {deviceInfo?.serialNumber} · Phase: {syncState.runtimePhase}
+            {manifest ? ` · Day ${manifest.deployment.currentDay}` : ''}
           </p>
         </div>
         <Link to="/dashboard" className="text-xs text-slate-400 underline">
@@ -31,18 +30,25 @@ export default function XC4055Simulator() {
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-3">
-        {SCREENS.map(({ target, label }) => {
+        {SCREEN_TARGETS.map((target, index) => {
           const screen = manifest ? findScreenForTarget(manifest, target) : undefined;
           const video = getCurrentVideo(screen);
           const videoSrc = video?.url ? resolveMediaFileUrl(video.url) : null;
+          const categoryLabel = screen?.label?.trim();
+          const paneLabel = categoryLabel
+            ? /^screen\s*\d/i.test(categoryLabel)
+              ? categoryLabel
+              : `Screen ${index + 1} — ${categoryLabel}`
+            : XC4055_SCREEN_FALLBACK_LABELS[target];
+
           return (
             <DisplayScreen
               key={target}
-              label={label}
+              label={paneLabel}
               videoSrc={videoSrc}
               meta={{
                 day: screen?.rotationDay ?? manifest?.deployment.currentDay,
-                library: manifest?.deployment.libraryName,
+                library: categoryLabel ?? paneLabel,
                 rotation: manifest?.deployment.rotationId,
               }}
             />
