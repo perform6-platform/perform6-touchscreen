@@ -113,7 +113,17 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         pushDebugLog({
           category: 'sync',
           message: 'Sync completed',
-          data: { syncJobId: result.syncData?.syncJobId, screens: result.manifest.screens.length },
+          data: {
+            syncJobId: result.syncData?.syncJobId,
+            screens: result.manifest.screens.length,
+            ota: result.ota?.updateAvailable
+              ? {
+                  version: result.ota.version,
+                  reachable: result.ota.reachable,
+                  downloadUrl: result.ota.downloadUrl,
+                }
+              : undefined,
+          },
         });
       } else {
         setSyncState({

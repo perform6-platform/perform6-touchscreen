@@ -8,6 +8,7 @@ export * from './syncEngine';
 export * from './manifest';
 export * from './playback';
 export * from './media';
+export * from './ota';
 export * from './offlineCache';
 export * from './runtime';
 export * from './credentialStore';

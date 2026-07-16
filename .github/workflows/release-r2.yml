@@ -43,8 +43,9 @@ jobs:
         run: |
           pip install awscli --quiet
           aws s3 cp "perform6-touchscreen-${VERSION}.zip" \
-            "s3://${{ vars.R2_BUCKET_RELEASES }}/touchscreen/perform6-touchscreen-${VERSION}.zip" \
-            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+            "s3://${{ vars.R2_BUCKET_RELEASES }}/releases/touchscreen/perform6-touchscreen-${VERSION}.zip" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            --content-type application/zip
 
       - uses: actions/upload-artifact@v4
         with:

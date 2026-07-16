@@ -6,12 +6,14 @@ import {
   getCachedMediaVersionIds,
 } from './manifest';
 import { simulateDownload } from './media';
+import { checkOtaUpdate } from './ota';
 import { checkSync, reportDownloadComplete, reportSyncStatus } from './sync';
 
 export interface SyncEngineResult {
   success: boolean;
   manifest: PlaybackManifest | null;
   syncData: SyncCheckResponseData | null;
+  ota?: Awaited<ReturnType<typeof checkOtaUpdate>>;
   error?: string;
 }
 
@@ -62,11 +64,13 @@ export async function runSyncEngine(
     });
 
     const manifest = buildRuntimeManifest(syncData, profile);
+    const ota = await checkOtaUpdate(syncData.runtime ?? null);
 
     return {
       success: true,
       manifest,
       syncData,
+      ota,
     };
   } catch (e) {
     return {
