@@ -8,6 +8,17 @@
 | `docker-publish.yml` | `main`, version tags | GHCR image (nginx preview) |
 | `release-r2.yml` | Tag `touchscreen-v*` | ZIP → Cloudflare R2 for device OTA |
 
+Local profile ZIPs (before / alongside R2):
+
+```bash
+npm run release:zip:xt2145 -- 1.0.0
+npm run release:zip:xc4055 -- 1.0.0
+npm run release:zip:hd226 -- 1.0.0
+```
+
+Outputs under `releases/<profile>/`. Suggested R2 keys: `releases/xt2145/…`, `releases/xc4055/…`, `releases/hd226/…`.
+
+
 ## Secrets & variables
 
 | Name | Type | Purpose |

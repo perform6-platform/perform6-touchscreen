@@ -1,15 +1,6 @@
 #!/bin/sh
-# Builds BrightSign deployment ZIP: autorun.brs + index.html + assets/
+# Legacy wrapper — prefer: npm run release:zip:xt2145 -- 1.0.0
 set -e
 VERSION="${1:-dev}"
-OUT="perform6-touchscreen-${VERSION}.zip"
-
-npm run build
-rm -rf .release && mkdir -p .release
-cp brightsign/autorun.brs .release/autorun.brs
-cp dist/index.html .release/index.html
-cp -r dist/assets .release/assets
-
-cd .release && zip -r "../${OUT}" . && cd ..
-rm -rf .release
-echo "Created ${OUT}"
+PROFILE="${2:-XT2145}"
+node "$(dirname "$0")/build-profile-zip.mjs" "$PROFILE" "$VERSION"

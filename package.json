@@ -9,7 +9,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "release:zip": "sh scripts/build-release-zip.sh"
+    "release:zip": "node scripts/build-profile-zip.mjs XT2145",
+    "release:zip:xt2145": "node scripts/build-profile-zip.mjs XT2145",
+    "release:zip:xc4055": "node scripts/build-profile-zip.mjs XC4055",
+    "release:zip:hd226": "node scripts/build-profile-zip.mjs HD226",
+    "release:zip:all": "node scripts/build-all-profile-zips.mjs"
   },
   "dependencies": {
     "framer-motion": "^11.15.0",
