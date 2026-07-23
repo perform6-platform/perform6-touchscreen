@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HomeHeroVideo } from '../components/home';
 import { useDisplayPlayback } from '../hooks/useRuntime';
-import { resolveTouchVideos } from '../services/playback';
+import { useTouchVideos } from '../hooks/useOfflineVideoSrc';
 import { useRuntimeStore } from '../stores/runtimeStore';
 import {
   CardThumbnail,
@@ -59,10 +59,8 @@ export default function Home() {
   const { playbackState, setDisplayVideoSrc } = useDisplayPlayback();
   const resetDisplayControls = useRuntimeStore((s) => s.resetDisplayControls);
   const setDisplayVideoLoop = useRuntimeStore((s) => s.setDisplayVideoLoop);
-  const touchVideos = useMemo(
-    () => resolveTouchVideos(playbackState.manifest),
-    [playbackState.manifest],
-  );
+  const setDisplayPaused = useRuntimeStore((s) => s.setDisplayPaused);
+  const touchVideos = useTouchVideos(playbackState.manifest);
   const [startHereOpen, setStartHereOpen] = useState(false);
   const [phase1Open, setPhase1Open] = useState(false);
   const [phase2Open, setPhase2Open] = useState(false);
@@ -80,17 +78,26 @@ export default function Home() {
   const idleModalOpen = idle.isOpen && !sessionOpen;
   const playingModalOpen = sessionOpen || idleModalOpen;
 
+  // Main menu: DEFAULT video loops on HDMI + behind touch buttons.
   useEffect(() => {
-    if (!sessionOpen) {
-      setDisplayVideoSrc(touchVideos.idle);
-    }
-  }, [setDisplayVideoSrc, touchVideos.idle, sessionOpen]);
+    if (sessionOpen) return;
+    setDisplayVideoLoop(true);
+    setDisplayPaused(false);
+    setDisplayVideoSrc(touchVideos.idle);
+  }, [
+    sessionOpen,
+    setDisplayPaused,
+    setDisplayVideoLoop,
+    setDisplayVideoSrc,
+    touchVideos.idle,
+  ]);
 
   useEffect(() => {
     return () => setDisplayVideoSrc(null);
   }, [setDisplayVideoSrc]);
 
-  const beginSession = (source: ActiveSession['source'], videoSrc: string) => {
+  const beginSession = (source: ActiveSession['source'], videoSrc: string | null) => {
+    if (!videoSrc) return;
     idle.close();
     resetDisplayControls();
     setDisplayVideoLoop(source !== 'full-program');
@@ -104,7 +111,10 @@ export default function Home() {
 
   const handleCloseSession = () => {
     setActiveSession(null);
+    // Return to main menu ambient DEFAULT (looping) on touch + HDMI.
     resetDisplayControls();
+    setDisplayVideoLoop(true);
+    setDisplayPaused(false);
     setDisplayVideoSrc(touchVideos.idle);
   };
 
@@ -145,7 +155,7 @@ export default function Home() {
       className="p6-home relative h-full w-full overflow-hidden"
       onPointerDown={idle.onActivity}
     >
-      <HomeHeroVideo src={touchVideos.idle} />
+      <HomeHeroVideo src={touchVideos.idle} paused={sessionOpen} />
 
       <div className="p6-home__grid">
         <Logo className="p6-home__logo" />

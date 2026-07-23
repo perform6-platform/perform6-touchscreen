@@ -1,5 +1,6 @@
 import type { MediaAsset, PlaybackManifest, PlaybackScreen } from '../shared/types';
 import type { ClusterMember, DisplayTarget } from '../shared/types';
+import { CLUSTER_MEMBERS } from '../config/runtime';
 
 export type TouchPlaybackSlot =
   | 'touch-default'
@@ -7,14 +8,6 @@ export type TouchPlaybackSlot =
   | 'phase1'
   | 'phase2'
   | 'full-program';
-
-const TOUCH_FALLBACK_VIDEOS: Record<TouchPlaybackSlot, string> = {
-  'touch-default': '/videos/warmup.mp4',
-  'start-here': '/videos/warmup.mp4',
-  phase1: '/videos/phase1-gym.mp4',
-  phase2: '/videos/phase1-gym.mp4',
-  'full-program': '/videos/phase1-gym.mp4',
-};
 
 export function findTouchScreen(
   manifest: PlaybackManifest | null | undefined,
@@ -24,19 +17,13 @@ export function findTouchScreen(
   return manifest.screens.find((s) => s.id === slotId);
 }
 
+/** Synced DB URLs only — empty string when the slot has no assignment/media. */
 export function resolveTouchVideoUrl(
   manifest: PlaybackManifest | null | undefined,
   slotId: TouchPlaybackSlot,
 ): string {
   const direct = getCurrentVideo(findTouchScreen(manifest, slotId));
-  if (direct?.url) return direct.url;
-
-  if (slotId !== 'touch-default') {
-    const idle = getCurrentVideo(findTouchScreen(manifest, 'touch-default'));
-    if (idle?.url) return idle.url;
-  }
-
-  return TOUCH_FALLBACK_VIDEOS[slotId];
+  return direct?.url ?? '';
 }
 
 export function resolveTouchVideos(manifest: PlaybackManifest | null | undefined) {
@@ -64,7 +51,18 @@ export function findScreenForClusterMember(
   manifest: PlaybackManifest,
   clusterMember: ClusterMember,
 ): PlaybackScreen | undefined {
-  return manifest.screens.find((s) => s.clusterMember === clusterMember);
+  const byMember = manifest.screens.find((s) => s.clusterMember === clusterMember);
+  if (byMember) return byMember;
+
+  // Fallback: SCREEN_1 → DEVICE_A mapping when clusterMember was not hydrated.
+  const index = CLUSTER_MEMBERS.indexOf(clusterMember);
+  if (index < 0) return undefined;
+  const screenKey = `SCREEN_${index + 1}`;
+  return (
+    manifest.screens.find((s) => s.displayTarget === screenKey) ??
+    manifest.screens.find((s) => s.id === `hd226-${clusterMember}`) ??
+    (manifest.screens.length === 1 ? manifest.screens[0] : undefined)
+  );
 }
 
 export function getCurrentVideo(screen: PlaybackScreen | undefined): MediaAsset | null {
@@ -136,7 +134,7 @@ export function createMockManifest(profile: string): PlaybackManifest {
             },
           ]
         : profile === 'HD226'
-          ? (['DEVICE_A', 'DEVICE_B', 'DEVICE_C'] as const).map((member, i) => ({
+          ? CLUSTER_MEMBERS.slice(0, 3).map((member, i) => ({
               id: `hd226-${member}`,
               label: member,
               clusterMember: member,

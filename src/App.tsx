@@ -28,7 +28,14 @@ export default function App() {
         {runtimeConfig.isSimulator && (
           <>
             <Route path="/simulator" element={<SimulatorLauncher />} />
-            <Route path="/simulator/xt2145" element={<XT2145Simulator />} />
+            <Route
+              path="/simulator/xt2145"
+              element={
+                <RequirePaired redirectTo="/pairing">
+                  <XT2145Simulator />
+                </RequirePaired>
+              }
+            />
             <Route
               path="/simulator/xc4055"
               element={

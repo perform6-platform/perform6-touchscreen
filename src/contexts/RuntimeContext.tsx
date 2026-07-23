@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,22 +16,32 @@ import {
   PairingConflictError,
   resolvePairingIdentity,
   createMockManifest,
-  prefetchPlaylist,
   getPostRegistrationRoute,
   runSyncEngine,
   sendDeviceHeartbeat,
   getCredentials,
   fetchAndStoreCredentials,
+  clearCachedMediaVersionIds,
 } from '../services';
 import { ApiError } from '../services/api';
-import type { DeviceInfo, DeviceRegistrationStatus } from '../shared/types';
+import type { ClusterMember, DeviceInfo, DeviceRegistrationStatus } from '../shared/types';
 import type { MockDeviceOptions } from '../shared/mockDevice';
 import { isDeviceReady, useDeviceStore } from '../stores/deviceStore';
 import { useRuntimeStore } from '../stores/runtimeStore';
 import { useDeviceContext } from './DeviceContext';
+import {
+  clearHdPairingSession,
+  hdClusterMemberRoute,
+  loadHdPairingSession,
+  resolveNextHdClusterMember,
+  upsertHdPairingSessionEntry,
+  type HdPairingSessionEntry,
+} from '../simulator/hdClusterPairing';
 
 interface BeginSimulatorProfileOptions extends MockDeviceOptions {
   route: string;
+  /** When true, wipe HD multi-pair session history (fresh HD226 launch). */
+  resetHdPairingSession?: boolean;
 }
 
 interface RuntimeContextValue {
@@ -42,6 +53,10 @@ interface RuntimeContextValue {
   retryPairing: () => void;
   runSyncNow: () => Promise<void>;
   beginSimulatorProfile: (options: BeginSimulatorProfileOptions) => Promise<void>;
+  /** Simulator-only: clear current HD unit and POST /devices/pair as the next DEVICE_*. */
+  pairNextHdDevice: (member?: ClusterMember) => Promise<void>;
+  hdPairingHistory: HdPairingSessionEntry[];
+  refreshHdPairingHistory: () => void;
   fetchCredentials: () => Promise<void>;
   resolveCredentials: (deviceId: string) => Promise<void>;
   onCredentialsSaved: () => Promise<void>;
@@ -73,6 +88,37 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   const activeDeviceInfo = useRef<DeviceInfo | null>(null);
 
   const credentialFetchStarted = useRef(false);
+  const [hdPairingHistory, setHdPairingHistory] = useState<HdPairingSessionEntry[]>(() =>
+    loadHdPairingSession().entries,
+  );
+
+  const refreshHdPairingHistory = useCallback(() => {
+    setHdPairingHistory(loadHdPairingSession().entries);
+  }, []);
+
+  const recordHdPairing = useCallback(
+    (
+      info: DeviceInfo,
+      pairing: {
+        pairingId: string;
+        pairingCode: string;
+        registrationStatus: DeviceRegistrationStatus;
+      },
+    ) => {
+      if (info.hardwareProfile !== 'HD226' || !info.clusterMember || !pairing.pairingCode) {
+        return;
+      }
+      const session = upsertHdPairingSessionEntry({
+        clusterMember: info.clusterMember,
+        pairingId: pairing.pairingId,
+        pairingCode: pairing.pairingCode,
+        serialNumber: info.serialNumber,
+        registrationStatus: pairing.registrationStatus,
+      });
+      setHdPairingHistory(session.entries);
+    },
+    [],
+  );
 
   const isReady = isDeviceReady();
   const isRegistered = registrationStatus === 'registered';
@@ -83,7 +129,6 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     if (!info) return;
     const manifest = createMockManifest(info.hardwareProfile);
     setPlaybackManifest(manifest);
-    await prefetchPlaylist(manifest.screens.flatMap((s) => s.playlist));
     setSyncState({ runtimePhase: 'ready', lastSyncAt: new Date().toISOString() });
     pushDebugLog({ category: 'playback', message: 'Mock manifest loaded', data: manifest });
   }, [deviceInfo, pushDebugLog, setPlaybackManifest, setSyncState]);
@@ -96,7 +141,23 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     setSyncState({ inProgress: true, error: null, runtimePhase: 'syncing' });
     pushDebugLog({ category: 'sync', message: 'POST /sync/check started' });
 
-    const result = await runSyncEngine(auth, info.hardwareProfile);
+    const result = await runSyncEngine(
+      {
+        ...auth,
+        clusterMember: info.clusterMember,
+        // XC4055 3-pane simulator must not filter to a single HDMI port —
+        // otherwise targets{} empties and panes stay blank while media still downloads.
+        // Simulator: never filter XT/XC bindings — XT has TOUCH_MAIN (not HDMI),
+        // XC needs all three panes. HD still scopes by clusterMember.
+        displayTarget:
+          runtimeConfig.isSimulator &&
+          (info.hardwareProfile === 'XC4055' ||
+            info.hardwareProfile === 'XT2145')
+            ? undefined
+            : info.displayTarget,
+      },
+      info.hardwareProfile,
+    );
 
     if (result.success) {
       if (result.manifest) {
@@ -116,6 +177,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
           data: {
             syncJobId: result.syncData?.syncJobId,
             screens: result.manifest.screens.length,
+            completeReportFailures: result.completeReportFailures ?? 0,
             ota: result.ota?.updateAvailable
               ? {
                   version: result.ota.version,
@@ -196,6 +258,11 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
           pairingCode: res.pairingCode,
           registrationStatus: res.registrationStatus,
         });
+        recordHdPairing(info, {
+          pairingId: res.pairingId,
+          pairingCode: res.pairingCode,
+          registrationStatus: res.registrationStatus,
+        });
 
         const phase =
           res.registrationStatus === 'registered'
@@ -238,6 +305,11 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
             pairingCode: mockCode,
             registrationStatus: 'waiting_for_registration',
           });
+          recordHdPairing(info, {
+            pairingId: `sim-${info.serialNumber}`,
+            pairingCode: mockCode,
+            registrationStatus: 'waiting_for_registration',
+          });
           setSyncState({ runtimePhase: 'waiting_claim' });
           pushDebugLog({ category: 'pairing', message: `Simulated pairing: ${mockCode}` });
           setConnectionStatus('online');
@@ -254,17 +326,31 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [pushDebugLog, setConnectionStatus, setPairing, setRegistrationStatus, setSyncState],
+    [
+      pushDebugLog,
+      recordHdPairing,
+      setConnectionStatus,
+      setPairing,
+      setRegistrationStatus,
+      setSyncState,
+    ],
   );
 
   const beginSimulatorProfile = useCallback(
     async (options: BeginSimulatorProfileOptions) => {
-      const { route, ...profileOverrides } = options;
+      const { route, resetHdPairingSession = false, ...profileOverrides } = options;
       const hardwareProfile = profileOverrides.hardwareProfile ?? runtimeConfig.hardwareProfile;
+
+      if (resetHdPairingSession) {
+        clearHdPairingSession();
+        setHdPairingHistory([]);
+      }
 
       pairingStarted.current = false;
       registeredNavigated.current = false;
+      // Full local wipe so re-pair after admin disable never reuses stale code/token/cache.
       clearDeviceStore();
+      clearCachedMediaVersionIds();
       setPlaybackManifest(null);
       setSimulatorSession({ active: true, pendingRoute: route });
 
@@ -292,6 +378,49 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       setPlaybackManifest,
       setSimulatorSession,
     ],
+  );
+
+  const pairNextHdDevice = useCallback(
+    async (member?: ClusterMember) => {
+      if (!runtimeConfig.isSimulator) {
+        throw new Error('pairNextHdDevice is only available in the simulator');
+      }
+
+      const info = activeDeviceInfo.current ?? deviceInfo;
+      const store = useDeviceStore.getState();
+
+      if (info?.hardwareProfile === 'HD226' && info.clusterMember && store.pairingCode && store.pairingId) {
+        recordHdPairing(info, {
+          pairingId: store.pairingId,
+          pairingCode: store.pairingCode,
+          registrationStatus: store.registrationStatus,
+        });
+      }
+
+      const nextMember =
+        member ??
+        resolveNextHdClusterMember(
+          info?.hardwareProfile === 'HD226' ? info.clusterMember : null,
+        );
+
+      if (!nextMember) {
+        throw new Error('All HD226 cluster members (DEVICE_A–J) already have pairing codes in this session');
+      }
+
+      pushDebugLog({
+        category: 'pairing',
+        message: `Pairing next HD cluster member: ${nextMember}`,
+      });
+
+      await beginSimulatorProfile({
+        hardwareProfile: 'HD226',
+        deploymentType: profileDefaultDeployment('HD226'),
+        clusterMember: nextMember,
+        route: hdClusterMemberRoute(nextMember),
+        resetHdPairingSession: false,
+      });
+    },
+    [beginSimulatorProfile, deviceInfo, pushDebugLog, recordHdPairing],
   );
 
   const fetchCredentials = useCallback(async () => {
@@ -398,7 +527,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   }, [deviceInfo, registrationStatus, executePairing]);
 
   useEffect(() => {
-    if (isDeviceReady()) return;
+    if (isDeviceReady() || hasCredentials) return;
     if (
       registrationStatus !== 'waiting_for_registration' &&
       registrationStatus !== 'paired' &&
@@ -408,19 +537,30 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     }
 
     const poll = () => {
+      if (isDeviceReady()) return;
+
       const info = activeDeviceInfo.current ?? deviceInfo;
       if (!info) return;
 
       void pollPairingStatus(info)
         .then((res) => {
+          if (isDeviceReady()) return;
+
           setPairing({
+            pairingId: res.pairingId,
+            pairingCode: res.pairingCode,
+            registrationStatus: res.registrationStatus,
+          });
+          recordHdPairing(info, {
             pairingId: res.pairingId,
             pairingCode: res.pairingCode,
             registrationStatus: res.registrationStatus,
           });
 
           if (res.registrationStatus === 'registered') {
-            setSyncState({ runtimePhase: 'waiting_credentials' });
+            if (!isDeviceReady()) {
+              setSyncState({ runtimePhase: 'waiting_credentials' });
+            }
             pushDebugLog({
               category: 'pairing',
               message: `REGISTERED — fetching credentials (pairingId: ${res.pairingId})`,
@@ -431,6 +571,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
           }
         })
         .catch(async (e) => {
+          if (isDeviceReady()) return;
           if (e instanceof PairingConflictError) {
             const info = activeDeviceInfo.current ?? deviceInfo;
             if (info) {
@@ -447,7 +588,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
               }
             }
             setRegistrationStatus('registered');
-            setSyncState({ runtimePhase: 'waiting_credentials' });
+            if (!isDeviceReady()) {
+              setSyncState({ runtimePhase: 'waiting_credentials' });
+            }
           }
         });
     };
@@ -457,7 +600,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(id);
   }, [
     deviceInfo,
+    hasCredentials,
     pushDebugLog,
+    recordHdPairing,
     registrationStatus,
     setPairing,
     setRegistrationStatus,
@@ -525,6 +670,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       retryPairing,
       runSyncNow,
       beginSimulatorProfile,
+      pairNextHdDevice,
+      hdPairingHistory,
+      refreshHdPairingHistory,
       fetchCredentials,
       resolveCredentials,
       onCredentialsSaved,
@@ -538,6 +686,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       retryPairing,
       runSyncNow,
       beginSimulatorProfile,
+      pairNextHdDevice,
+      hdPairingHistory,
+      refreshHdPairingHistory,
       fetchCredentials,
       resolveCredentials,
       onCredentialsSaved,

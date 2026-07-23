@@ -79,8 +79,11 @@ export function DisplayVideoPlayer({
           playsInline
         />
       ) : (
-        <div className="flex h-full items-center justify-center text-sm text-slate-500">
-          No video assigned
+        <div className="flex h-full flex-col items-center justify-center gap-1 px-4 text-center text-sm text-slate-500">
+          <span>No playable video</span>
+          <span className="text-xs text-slate-600">
+            Assignment missing, or media not cached yet — Sync Now
+          </span>
         </div>
       )}
     </div>

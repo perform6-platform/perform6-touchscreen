@@ -37,13 +37,49 @@ export interface SyncCheckResponseData {
   targetManifest?: BackendTargetManifest | null;
   schedule?: Array<{ date: string; rotationDay: number }>;
   media?: SyncMediaItem[];
-  cacheWindow?: { days: number };
+  requiredMedia?: SyncMediaItem[];
+  evictMediaVersionIds?: string[];
+  cacheWindow?: {
+    days: number;
+    startsAt?: string;
+    expiresAt?: string;
+    weekDays?: number;
+    prefetchLeadDays?: number;
+    mode?: string;
+    inPrefetchLeadWindow?: boolean;
+    currentWeekStart?: string | null;
+    nextWeekStart?: string | null;
+  };
+  prefetchStatus?: {
+    mode: string;
+    inPrefetchLeadWindow: boolean;
+    currentWeek: {
+      weekIndex: number | null;
+      startDate: string | null;
+      expected: number;
+      cached: number;
+      complete: boolean;
+    };
+    nextWeek: {
+      startDate: string | null;
+      expected: number;
+      cached: number;
+      complete: boolean;
+      downloading: boolean;
+    };
+    previousWeekHeld: boolean;
+  } | null;
 }
 
 export interface SyncMediaItem {
   mediaVersionId: string;
   fileUrl: string;
   checksum?: string;
+  fileSize?: string | null;
+  title?: string | null;
+  rotationDay?: number | null;
+  /** current first, then prefetch — set by server for download priority */
+  weekRole?: 'current' | 'prefetch' | 'previous' | string;
   cached?: boolean;
 }
 
@@ -101,6 +137,7 @@ export interface BackendPlaybackManifest {
 export interface BackendLogicalScreen {
   screenKey?: string;
   contentSlot?: string;
+  legacySlot?: string;
   categoryId?: string | null;
   sortOrder?: number;
   slotContent?: PlaybackSlotContent;
@@ -129,6 +166,15 @@ export interface SyncDownloadCompleteRequest {
   status: 'SUCCESS' | 'FAILED';
   bytesDownloaded?: string;
   durationMs?: number;
+  errorMessage?: string;
+}
+
+export interface SyncDownloadProgressRequest {
+  syncJobId: string;
+  mediaVersionId: string;
+  bytesDownloaded?: string;
+  totalBytes?: string;
+  phase?: 'DOWNLOADING' | 'VERIFYING';
 }
 
 export interface SyncStatusRequest {

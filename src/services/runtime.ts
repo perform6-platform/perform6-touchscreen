@@ -18,8 +18,12 @@ export function getDisplayRoute(profile: HardwareProfile): string {
 }
 
 export function getPostRegistrationRoute(profile: HardwareProfile): string {
-  if (runtimeConfig.isSimulator && profile === 'XT2145') {
-    return getTouchScreenRoute();
+  if (runtimeConfig.isSimulator) {
+    // Keep XT on the split touch + HDMI-out simulator (not bare /touch).
+    if (profile === 'XT2145') return '/simulator/xt2145';
+    if (profile === 'XC4055' || profile === 'HD226') {
+      return getDisplayRoute(profile);
+    }
   }
   if (profile === 'XC4055' || profile === 'HD226') {
     return getDisplayRoute(profile);

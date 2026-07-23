@@ -1,6 +1,5 @@
 import { cn } from '../../lib/cn';
-
-const LOGO_SRC = '/images/p6-logo.jpg';
+import perform6Logo from '../../assets/Perform_6_trademark.png';
 
 type LogoProps = {
   className?: string;
@@ -9,9 +8,12 @@ type LogoProps = {
 export function Logo({ className }: LogoProps) {
   return (
     <img
-      src={LOGO_SRC}
+      src={perform6Logo}
       alt="Perform6"
-      className={cn('p6-logo block h-auto w-[7.5rem] max-w-full object-contain object-left md:w-[11.5rem]', className)}
+      className={cn(
+        'p6-logo block h-auto w-[8.5rem] max-w-full object-contain object-left md:w-[12rem]',
+        className,
+      )}
       draggable={false}
     />
   );

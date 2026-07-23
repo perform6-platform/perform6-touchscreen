@@ -21,7 +21,8 @@ const PROFILES: { id: HardwareProfile; title: string; description: string; route
   {
     id: 'HD226',
     title: 'HD226 Cluster',
-    description: 'Independent player per cluster member (A / B / C)',
+    description:
+      '1–10 independent players. After each code is claimed, use “Pair next HD device” for the next serial.',
     route: '/simulator/hd226/device_a',
   },
 ];
@@ -42,6 +43,7 @@ export default function SimulatorLauncher() {
         clusterMember: profile === 'HD226' ? 'DEVICE_A' : undefined,
         displayTarget: profile === 'XC4055' ? 'SCREEN_1' : undefined,
         route,
+        resetHdPairingSession: profile === 'HD226',
       });
       navigate('/pairing', { replace: true });
     } catch (e) {

@@ -1,9 +1,14 @@
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDeviceContext } from '../contexts/DeviceContext';
 import { useHeartbeat, usePairing, useRuntime, useSync } from '../hooks/useRuntime';
 import { PairingCodeDisplay, CredentialInjectionForm } from '../components/pairing';
 import { runtimeConfig } from '../config/runtime';
 import { getPostRegistrationRoute } from '../services/runtime';
+import {
+  clusterMemberShortLabel,
+  resolveNextHdClusterMember,
+} from '../simulator/hdClusterPairing';
 
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
@@ -41,10 +46,41 @@ export default function Pairing() {
     retryPairing,
     isReady,
     needsCredentials,
+    pairNextHdDevice,
+    hdPairingHistory,
   } = usePairing();
   const { connectionStatus, store, simulatorSessionActive } = useRuntime();
   const { syncState, runSyncNow } = useSync();
   const { lastHeartbeatAt, heartbeatOk } = useHeartbeat();
+  const [pairingNext, setPairingNext] = useState(false);
+  const [pairNextError, setPairNextError] = useState<string | null>(null);
+
+  const isHdSimulator =
+    runtimeConfig.isSimulator && deviceInfo?.hardwareProfile === 'HD226';
+
+  const nextHdMember = useMemo(() => {
+    if (!isHdSimulator) return null;
+    return resolveNextHdClusterMember(deviceInfo?.clusterMember);
+  }, [deviceInfo?.clusterMember, hdPairingHistory, isHdSimulator]);
+
+  const canPairNextHd =
+    isHdSimulator &&
+    Boolean(nextHdMember) &&
+    registrationStatus !== 'pairing' &&
+    registrationStatus !== 'idle';
+
+  async function handlePairNextHd() {
+    if (!nextHdMember || pairingNext) return;
+    setPairingNext(true);
+    setPairNextError(null);
+    try {
+      await pairNextHdDevice(nextHdMember);
+    } catch (e) {
+      setPairNextError(e instanceof Error ? e.message : 'Failed to pair next HD device');
+    } finally {
+      setPairingNext(false);
+    }
+  }
 
   if (runtimeConfig.isSimulator && !simulatorSessionActive && !pairingCode && registrationStatus === 'idle') {
     return (
@@ -77,11 +113,22 @@ export default function Pairing() {
         <p className="p6-caption mb-2 text-p6-cyan">Perform6 Runtime</p>
         <h1 className="p6-title mb-2">Device Status</h1>
         <p className="p6-body text-p6-text-muted">{statusLabel(registrationStatus)}</p>
+        {isHdSimulator && deviceInfo?.clusterMember ? (
+          <p className="mt-2 text-sm text-p6-cyan">
+            Pairing as {clusterMemberShortLabel(deviceInfo.clusterMember)} ({deviceInfo.clusterMember})
+          </p>
+        ) : null}
       </div>
 
       {error && (
         <p className="rounded-lg border border-red-800 bg-red-950/40 px-4 py-2 text-sm text-red-300">
           {error}
+        </p>
+      )}
+
+      {pairNextError && (
+        <p className="rounded-lg border border-red-800 bg-red-950/40 px-4 py-2 text-sm text-red-300">
+          {pairNextError}
         </p>
       )}
 
@@ -95,6 +142,12 @@ export default function Pairing() {
             <dt className="text-slate-500">Model</dt>
             <dd>{deviceInfo.model}</dd>
           </div>
+          {deviceInfo.clusterMember ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-500">Cluster Member</dt>
+              <dd>{deviceInfo.clusterMember}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between gap-4">
             <dt className="text-slate-500">Serial</dt>
             <dd className="font-mono text-xs">{deviceInfo.serialNumber}</dd>
@@ -111,7 +164,45 @@ export default function Pairing() {
       )}
 
       {!isReady && pairingCode && (
-        <PairingCodeDisplay code={pairingCode} status={registrationStatus} />
+        <PairingCodeDisplay
+          code={pairingCode}
+          status={registrationStatus}
+          clusterMember={deviceInfo?.clusterMember}
+        />
+      )}
+
+      {isHdSimulator && hdPairingHistory.length > 0 && (
+        <section className="w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
+            HD codes this session
+          </h2>
+          <p className="mb-3 text-xs text-slate-500">
+            Claim each code in Admin → Devices, then add every claimed unit to the HD deployment wizard.
+          </p>
+          <ul className="divide-y divide-slate-800">
+            {hdPairingHistory.map((entry) => (
+              <li
+                key={entry.clusterMember}
+                className="flex items-center justify-between gap-3 py-2 text-sm"
+              >
+                <div>
+                  <p className="font-medium text-slate-200">
+                    {clusterMemberShortLabel(entry.clusterMember)}
+                  </p>
+                  <p className="font-mono text-[10px] text-slate-500">{entry.serialNumber}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-lg tracking-widest text-p6-cyan">
+                    {entry.pairingCode}
+                  </p>
+                  <p className="text-[10px] uppercase text-slate-500">
+                    {statusLabel(entry.registrationStatus)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {needsCredentials && <CredentialInjectionForm />}
@@ -146,6 +237,19 @@ export default function Pairing() {
           </button>
         )}
 
+        {canPairNextHd && (
+          <button
+            type="button"
+            className="rounded-xl border border-p6-cyan/60 bg-p6-cyan/10 px-6 py-2 text-sm font-semibold text-p6-cyan disabled:opacity-50"
+            disabled={pairingNext}
+            onClick={() => void handlePairNextHd()}
+          >
+            {pairingNext
+              ? 'Pairing next…'
+              : `Pair next HD device (${clusterMemberShortLabel(nextHdMember!)})`}
+          </button>
+        )}
+
         {isReady && deviceInfo && (
           <>
             <button
@@ -165,6 +269,13 @@ export default function Pairing() {
           </>
         )}
       </div>
+
+      {canPairNextHd && (
+        <p className="max-w-md text-center text-xs text-slate-500">
+          Calls <code className="text-p6-cyan">POST /devices/pair</code> with a new HD226 serial for{' '}
+          {nextHdMember}. Previous codes stay listed above for admin claim.
+        </p>
+      )}
 
       {store.playbackState.manifest && (
         <p className="text-xs text-slate-500">

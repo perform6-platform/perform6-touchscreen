@@ -23,7 +23,18 @@ function parseEnum<T extends string>(value: string, allowed: readonly T[], fallb
 export const RUNTIME_MODES = ['SIMULATOR', 'BRIGHTSIGN'] as const;
 export const HARDWARE_PROFILES = ['XT2145', 'XC4055', 'HD226'] as const;
 export const DEPLOYMENT_TYPES = ['TOUCH_SCREEN', 'DISPLAY'] as const;
-export const CLUSTER_MEMBERS = ['DEVICE_A', 'DEVICE_B', 'DEVICE_C'] as const;
+export const CLUSTER_MEMBERS = [
+  'DEVICE_A',
+  'DEVICE_B',
+  'DEVICE_C',
+  'DEVICE_D',
+  'DEVICE_E',
+  'DEVICE_F',
+  'DEVICE_G',
+  'DEVICE_H',
+  'DEVICE_I',
+  'DEVICE_J',
+] as const;
 export const DISPLAY_TARGETS = ['SCREEN_1', 'SCREEN_2', 'SCREEN_3'] as const;
 
 export interface RuntimeConfig {

@@ -4,6 +4,7 @@ import type {
   SyncCheckRequest,
   SyncCheckResponseData,
   SyncDownloadCompleteRequest,
+  SyncDownloadProgressRequest,
   SyncStatusRequest,
 } from '../shared/types/api';
 import { apiFetchData } from './api';
@@ -18,10 +19,7 @@ export interface SyncCheckOptions {
 }
 
 function buildSyncHeaders(auth: DeviceAuthContext, options: SyncCheckOptions) {
-  const displayTarget =
-    options.displayTarget != null
-      ? toBackendDisplayTarget(options.displayTarget)
-      : auth.displayTarget;
+  const displayTarget = resolveSyncDisplayTarget(auth, options);
   const clusterMember = options.clusterMember ?? auth.clusterMember;
 
   const headers: Record<string, string> = {};
@@ -31,23 +29,40 @@ function buildSyncHeaders(auth: DeviceAuthContext, options: SyncCheckOptions) {
   return headers;
 }
 
+/** Always map SCREEN_* → HDMI* so backend binding filters match. */
+function resolveSyncDisplayTarget(
+  auth: DeviceAuthContext,
+  options: SyncCheckOptions,
+): string | undefined {
+  const raw = options.displayTarget ?? auth.displayTarget;
+  if (!raw) return undefined;
+  if (/^HDMI\d+$/i.test(raw)) return raw.toUpperCase();
+  return toBackendDisplayTarget(raw as DisplayTarget);
+}
+
 export async function checkSync(
   auth: DeviceAuthContext,
   options: SyncCheckOptions = {},
 ): Promise<SyncCheckResponseData> {
+  const clusterMember = options.clusterMember ?? auth.clusterMember;
+  const displayTarget = resolveSyncDisplayTarget(auth, options);
+
   const body: SyncCheckRequest = {
     runtimeVersion: runtimeConfig.runtimeVersion,
     cachedMediaVersionIds: options.cachedMediaVersionIds ?? [],
   };
 
-  if (options.displayTarget) {
-    body.displayTarget = toBackendDisplayTarget(options.displayTarget);
+  if (displayTarget) {
+    body.displayTarget = displayTarget;
   }
-  if (options.clusterMember) {
-    body.clusterMember = options.clusterMember;
+  if (clusterMember) {
+    body.clusterMember = clusterMember;
   }
 
-  const extraHeaders = buildSyncHeaders(auth, options);
+  const extraHeaders = buildSyncHeaders(auth, {
+    ...options,
+    clusterMember,
+  });
 
   return apiFetchData<SyncCheckResponseData>('/sync/check', {
     method: 'POST',
@@ -63,6 +78,54 @@ export async function reportDownloadComplete(
   payload: SyncDownloadCompleteRequest,
 ): Promise<void> {
   await apiFetchData<unknown>('/sync/download-complete', {
+    method: 'POST',
+    token: auth.apiToken,
+    deviceId: auth.deviceId,
+    body: JSON.stringify(payload),
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * Durable download-complete: retries so admin Required Media does not stick on
+ * MISSING/FAILED after a successful local download.
+ */
+export async function reportDownloadCompleteWithRetry(
+  auth: DeviceAuthContext,
+  payload: SyncDownloadCompleteRequest,
+  options?: { attempts?: number; baseDelayMs?: number },
+): Promise<void> {
+  const attempts = options?.attempts ?? 3;
+  const baseDelayMs = options?.baseDelayMs ?? 500;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await reportDownloadComplete(auth, payload);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        await sleep(baseDelayMs * attempt);
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('download-complete failed after retries');
+}
+
+export async function reportDownloadProgress(
+  auth: DeviceAuthContext,
+  payload: SyncDownloadProgressRequest,
+): Promise<void> {
+  await apiFetchData<unknown>('/sync/download-progress', {
     method: 'POST',
     token: auth.apiToken,
     deviceId: auth.deviceId,

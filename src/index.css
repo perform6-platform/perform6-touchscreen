@@ -249,19 +249,17 @@ body,
 .p6-home__hero {
   position: absolute;
   inset: 0;
-  right: 42%;
   overflow: hidden;
   pointer-events: none;
 }
 
 .p6-home__hero-video {
   position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 100%;
+  inset: 0;
   width: 100%;
+  height: 100%;
   object-fit: cover;
-  object-position: 30% center;
+  object-position: center;
 }
 
 .p6-home__hero-glow {
@@ -272,8 +270,8 @@ body,
   height: 55%;
   background: radial-gradient(
     ellipse at center,
-    rgba(74, 163, 255, 0.35) 0%,
-    rgba(74, 163, 255, 0.08) 45%,
+    rgba(74, 163, 255, 0.28) 0%,
+    rgba(74, 163, 255, 0.06) 45%,
     transparent 70%
   );
 }
@@ -281,11 +279,10 @@ body,
 .p6-home__hero-fade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 55%,
-    var(--color-p6-bg) 92%
-  );
+  /* Soft vignette so cards stay readable — video still covers full background */
+  background:
+    radial-gradient(ellipse at center, transparent 35%, rgba(0, 5, 10, 0.35) 100%),
+    linear-gradient(180deg, rgba(0, 5, 10, 0.2) 0%, rgba(0, 5, 10, 0.45) 100%);
 }
 
 .p6-home__grid {
@@ -1314,10 +1311,6 @@ body,
 /* ─── Mobile & tablet responsive ─── */
 
 @media (max-width: 1024px) {
-  .p6-home__hero {
-    right: 28%;
-  }
-
   .p6-home__grid {
     padding: 1.5rem 1.75rem 1.25rem;
     gap: 0.75rem 1rem;
@@ -1350,13 +1343,12 @@ body,
   }
 
   .p6-home__hero {
-    right: 0;
-    bottom: auto;
-    height: min(38vh, 16rem);
+    inset: 0;
+    height: auto;
   }
 
   .p6-home__hero-video {
-    object-position: center 20%;
+    object-position: center;
   }
 
   .p6-home__hero-glow {
@@ -1368,17 +1360,14 @@ body,
   }
 
   .p6-home__hero-fade {
-    background: linear-gradient(
-      180deg,
-      transparent 35%,
-      rgba(0, 5, 10, 0.55) 70%,
-      var(--color-p6-bg) 100%
-    );
+    background:
+      radial-gradient(ellipse at center, transparent 30%, rgba(0, 5, 10, 0.4) 100%),
+      linear-gradient(180deg, rgba(0, 5, 10, 0.25) 0%, rgba(0, 5, 10, 0.55) 100%);
   }
 
   .p6-home__grid {
     height: auto;
-    min-height: calc(100% - min(38vh, 16rem));
+    min-height: 100%;
     padding: 1rem 1rem 1.5rem;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
@@ -1395,8 +1384,11 @@ body,
   }
 
   .p6-home__logo {
-    position: static;
-    align-self: center;
+    position: relative;
+    top: 0;
+    left: 0;
+    align-self: start;
+    z-index: 2;
   }
 
   .p6-home__start-here {
@@ -1558,10 +1550,6 @@ body,
 @media (max-width: 480px) {
   :root {
     --text-p6-hero: 1.45rem;
-  }
-
-  .p6-home__hero {
-    height: min(32vh, 12rem);
   }
 
   .p6-home__grid {

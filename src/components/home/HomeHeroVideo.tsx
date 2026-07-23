@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 type HomeHeroVideoProps = {
-  src: string;
+  src: string | null;
   paused?: boolean;
 };
 
@@ -10,7 +10,7 @@ export function HomeHeroVideo({ src, paused = false }: HomeHeroVideoProps) {
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !src) return;
 
     if (paused) {
       video.pause();
@@ -19,20 +19,23 @@ export function HomeHeroVideo({ src, paused = false }: HomeHeroVideoProps) {
 
     video.muted = true;
     void video.play().catch(() => {});
-  }, [paused]);
+  }, [paused, src]);
 
   return (
     <div className="p6-home__hero" aria-hidden>
-      <video
-        ref={videoRef}
-        className="p6-home__hero-video"
-        src={src}
-        autoPlay
-        muted
-        loop
-        playsInline
-        draggable={false}
-      />
+      {src ? (
+        <video
+          ref={videoRef}
+          key={src}
+          className="p6-home__hero-video"
+          src={src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          draggable={false}
+        />
+      ) : null}
       <div className="p6-home__hero-glow" />
       <div className="p6-home__hero-fade" />
     </div>

@@ -18,8 +18,18 @@ export function usePairing() {
   const pairingCode = useDeviceStore((s) => s.pairingCode);
   const pairingId = useDeviceStore((s) => s.pairingId);
   const registrationStatus = useDeviceStore((s) => s.registrationStatus);
-  const { retryPairing, isRegistered, isReady, needsCredentials, beginSimulatorProfile, fetchCredentials, resolveCredentials, onCredentialsSaved } =
-    useRuntimeContext();
+  const {
+    retryPairing,
+    isRegistered,
+    isReady,
+    needsCredentials,
+    beginSimulatorProfile,
+    pairNextHdDevice,
+    hdPairingHistory,
+    fetchCredentials,
+    resolveCredentials,
+    onCredentialsSaved,
+  } = useRuntimeContext();
 
   return {
     pairingCode,
@@ -30,6 +40,8 @@ export function usePairing() {
     isReady,
     needsCredentials,
     beginSimulatorProfile,
+    pairNextHdDevice,
+    hdPairingHistory,
     fetchCredentials,
     resolveCredentials,
     onCredentialsSaved,

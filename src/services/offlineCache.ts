@@ -29,6 +29,24 @@ class OfflineCacheService {
     return Object.values(all);
   }
 
+  async remove(assetId: string): Promise<void> {
+    this.memory.delete(assetId);
+    const all = this.readLocal();
+    delete all[assetId];
+    localStorage.setItem(MEDIA_STORE, JSON.stringify(all));
+  }
+
+  async removeMany(assetIds: string[]): Promise<void> {
+    for (const id of assetIds) {
+      this.memory.delete(id);
+    }
+    const all = this.readLocal();
+    for (const id of assetIds) {
+      delete all[id];
+    }
+    localStorage.setItem(MEDIA_STORE, JSON.stringify(all));
+  }
+
   async clear(): Promise<void> {
     this.memory.clear();
     localStorage.removeItem(MEDIA_STORE);

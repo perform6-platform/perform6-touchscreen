@@ -4,7 +4,17 @@ export type HardwareProfile = 'XT2145' | 'XC4055' | 'HD226';
 
 export type DeploymentType = 'TOUCH_SCREEN' | 'DISPLAY';
 
-export type ClusterMember = 'DEVICE_A' | 'DEVICE_B' | 'DEVICE_C';
+export type ClusterMember =
+  | 'DEVICE_A'
+  | 'DEVICE_B'
+  | 'DEVICE_C'
+  | 'DEVICE_D'
+  | 'DEVICE_E'
+  | 'DEVICE_F'
+  | 'DEVICE_G'
+  | 'DEVICE_H'
+  | 'DEVICE_I'
+  | 'DEVICE_J';
 
 export type DisplayTarget = 'SCREEN_1' | 'SCREEN_2' | 'SCREEN_3';
 

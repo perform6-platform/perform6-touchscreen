@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import Home from '../pages/Home';
 import { DisplayScreen } from '../display-ui';
 import { useDisplayPlayback, useRuntime } from '../hooks/useRuntime';
-import { resolveTouchVideoUrl } from '../services/playback';
+import { useTouchVideos } from '../hooks/useOfflineVideoSrc';
 import { useRuntimeStore } from '../stores/runtimeStore';
 
 export default function XT2145Simulator() {
@@ -10,7 +10,10 @@ export default function XT2145Simulator() {
   const displayVideoLoop = useRuntimeStore((s) => s.displayVideoLoop);
   const { deviceInfo } = useRuntime();
   const manifest = playbackState.manifest;
-  const idleVideo = resolveTouchVideoUrl(manifest, 'touch-default');
+  const touchVideos = useTouchVideos(manifest);
+  const idleVideo = touchVideos.idle;
+  // HDMI mirrors touch: session video while playing, otherwise DEFAULT ambient loop.
+  const externalSrc = displayVideoSrc ?? idleVideo;
 
   return (
     <div className="p6-xt2145-sim flex h-full flex-col lg:flex-row">
@@ -33,7 +36,7 @@ export default function XT2145Simulator() {
         <div className="min-h-0 flex-1">
           <DisplayScreen
             label="HDMI Out"
-            videoSrc={displayVideoSrc ?? idleVideo}
+            videoSrc={externalSrc}
             loop={displayVideoLoop}
             meta={{
               day: manifest?.deployment.currentDay,
